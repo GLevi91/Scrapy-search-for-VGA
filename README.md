@@ -1,3 +1,3 @@
 # Scrapy-search-for-VGA
 
-Description coming shortly (probably in a few days)!
+Readme coming shortly (probably in a few days)!
