@@ -7,6 +7,7 @@
 
 import httplib2
 import os
+from datetime import datetime
 from apiclient import discovery
 from oauth2client import client
 from oauth2client import tools
@@ -19,7 +20,7 @@ class GoogleAPIPipeline(object):
         CLIENT_SECRET_FILE = 'client_secret.json'
         APPLICATION_NAME = 'Google Sheets API for Scrapy'
         
-        cls.i = 2
+        cls.all_vga_list = []
         
         working_dir = os.getcwd()
         credential_dir = os.path.join(working_dir, '.credentials')
@@ -37,60 +38,60 @@ class GoogleAPIPipeline(object):
         cls.service = discovery.build('sheets', 'v4', http=http,discoveryServiceUrl=discoveryUrl)
         cls.spreadsheetId = '1SOial1KEWrdAcF8qzUHbuIQ5cp5cK4JMiDq2jqkmE1o'
 
+
+    def add_date(self,sheet_name):
+        range_name = '%s!G1' %(sheet_name)
+        value_input_option = 'RAW'
         
-    def remove_items(self,spider,spider_name,sheet_name):       
-        if spider.name == spider_name:
-            while self.i != 0:
-                range_name = '%s!A%d:D' %(sheet_name,self.i)
-                body = {}
-                result = self.service.spreadsheets().values().get(spreadsheetId=self.spreadsheetId, range=range_name).execute()
-                values = result.get('values', [])
-                if not values:
-                    self.i = 0
-                else:
-                    clear_values = self.service.spreadsheets().values().clear(spreadsheetId=self.spreadsheetId, range=range_name, body=body).execute()
-                    self.i += 1
-            self.i = 2
+        date = datetime.now().strftime('%Y-%m-%d %H:%M')
+        
+        values = [[date]]
+        
+        body = {
+            'values': values        
+        }
+        
+        result = self.service.spreadsheets().values().update(spreadsheetId=self.spreadsheetId, range=range_name, valueInputOption=value_input_option, body=body).execute()
+
+        
+    def remove_items(self,sheet_name):       
+        range_name = '%s!A2:D100' %(sheet_name)
+        body = {}
+        clear_values = self.service.spreadsheets().values().clear(spreadsheetId=self.spreadsheetId, range=range_name, body=body).execute()
 
             
-    def add_items(self,spider,spider_name,sheet_name,item):
-        if spider.name == spider_name:
-            range_name = '%s!A%d:D' %(sheet_name,self.i)
-            value_input_option = 'RAW'
+    def add_items(self,sheet_name):
+        self.remove_items(sheet_name)
+        
+        range_name = '%s!A2:D' %(sheet_name)
+        value_input_option = 'RAW'
             
-            vga_list = list(item.values())
-            vga_szoveg = str(vga_list[0])
-            vga_ar = str(vga_list[1])
-            vga_varos = str(vga_list[2])
-            vga_link = str(vga_list[3])
-            
-            values = [[vga_szoveg,vga_ar,vga_varos,vga_link]]
+        values = self.all_vga_list
             
             
-            body = {
-                'values': values        
-            }
+        body = {
+            'values': values        
+        }
             
-            result = self.service.spreadsheets().values().update(spreadsheetId=self.spreadsheetId, range=range_name, valueInputOption=value_input_option, body=body).execute()
-            
-            self.i += 1
+        result = self.service.spreadsheets().values().update(spreadsheetId=self.spreadsheetId, range=range_name, valueInputOption=value_input_option, body=body).execute()
+        
+        self.add_date(sheet_name)
 
-    
-    def open_spider(self, spider):
-        self.remove_items(spider,"rx470","RX 470")
-        self.remove_items(spider,"rx480","RX 480")
-        self.remove_items(spider,"rx570","RX 570")
-        self.remove_items(spider,"rx580","RX 580")
- 
        
     def close_spider(self, spider):
-        self.i = 2
+        if spider.name == "rx470":
+            self.add_items("RX 470")
+        elif spider.name == "rx480":
+            self.add_items("RX 480")
+        elif spider.name == "rx570":
+            self.add_items("RX 570")
+        elif spider.name == "rx580":
+            self.add_items("RX 580")
+        self.all_vga_list = []
  
     
     def process_item(self, item, spider):
-        self.add_items(spider,"rx470","RX 470",item)
-        self.add_items(spider,"rx480","RX 480",item)
-        self.add_items(spider,"rx570","RX 570",item)
-        self.add_items(spider,"rx580","RX 580",item)
+        vga_list = list(item.values())
+        self.all_vga_list.append(vga_list)
         
         return item
